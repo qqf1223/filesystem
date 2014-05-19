@@ -1,0 +1,16 @@
+CREATE TABLE `fs_log` (
+  `log_id` int(10) NOT NULL AUTO_INCREMENT COMMENT '日志id',
+  `fs_id` int(10) DEFAULT NULL COMMENT '对应的文件树id',
+  `fs_name` varchar(512) DEFAULT NULL COMMENT '本次操作产生的名称',
+  `fs_hashname` varchar(512) DEFAULT NULL COMMENT '每次对文件的更新操作都会产生的hash名称',
+  `fs_intro` varchar(1024) DEFAULT NULL COMMENT '文件说明',
+  `fs_size` int(11) DEFAULT NULL COMMENT '文件大小',
+  `fs_type` char(10) DEFAULT NULL COMMENT '文件类型（扩展名）',
+  `log_user` int(11) DEFAULT NULL COMMENT '操作的用户',
+  `log_type` tinyint(4) DEFAULT NULL COMMENT '0:创建 1:更新 2:改名 3:移动 4:删除 5:上传 6:下载 7: 还原',
+  `log_lastname` varchar(512) DEFAULT NULL COMMENT '操作之前的名称',
+  `log_optdate` datetime DEFAULT NULL COMMENT '操作时间',
+  `fs_code` varchar(500) DEFAULT '' COMMENT '文件编号',
+  `fs_parent` int(11) DEFAULT NULL COMMENT '父级目录ID',
+  PRIMARY KEY (`log_id`)
+) ENGINE=MyISAM AUTO_INCREMENT=745 DEFAULT CHARSET=utf8 COMMENT='修改历史记录';

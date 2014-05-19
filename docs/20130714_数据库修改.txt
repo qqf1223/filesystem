@@ -1,0 +1,2 @@
+ALTER TABLE `fs_log` ADD fs_code VARCHAR(500) DEFAULT NULL COMMENT '文档编号';
+ALTER TABLE `fs_log` ADD fs_parent INT(11) COMMENT '文档所属父级ID';

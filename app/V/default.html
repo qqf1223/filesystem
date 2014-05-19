@@ -1,0 +1,408 @@
+<? include("header.html"); ?>
+<script type="text/javascript">
+    var login_user = <?=$login_user?>;
+    var base_path = '<?=$base_path?>'; 
+    var js_path = '<?=$js_path?>'; 
+    var images_path = '<?=$images_path?>'; 
+    var power = <?=$power?>;
+</script>
+<script type="text/javascript" src="<?=$js_path?>workgroupPanel.js"></script>
+<!--页主体开始-->
+<script type="text/javascript">
+    Ext.Loader.setConfig({enabled: true}); //动态加载类
+    Ext.onReady(function () {
+        var docTreePanel = Ext.create('Ext.tree.Panel', {
+            rootVisible: false,
+            root:{
+                text:'树根',
+                expanded: true,
+                children: [
+                <? if(json_decode($login_user)->u_grade=='100'){?> { id: "001", text: "新建项目", leaf: true, href: '#' }, <? } ?>
+                { id: "002", text: "项目管理", leaf: true, href: '#' },
+                { id: "003", text: "文件查询", leaf: true, href: base_path+'index.php?c=search', iconCls:'search' },
+                { id: "004", text: "公共信息栏", leaf: true, href: '#', iconCls:'' }
+                <? if(json_decode($login_user)->u_grade>98){?> ,{ id: "005", text: "创建公共信息栏目录", leaf: true, href: '#' } <? } ?>
+                ]    
+            }
+    });
+    var personTreePanel=null;
+        personTreePanel = Ext.create('Ext.tree.Panel', {
+            rootVisible: false,
+            root: {
+                expanded: true,
+                children: [
+                { id: "010", text: "工作组列表", leaf: true, href: "#" }
+                <? if(json_decode($login_user)->u_grade==99 || json_decode($login_user)->u_grade==100){?> 
+                ,{ id: "011", text: "添加工作组", leaf: true, href: "#"}
+                <? } ?>
+                ]
+            }
+        });
+    var logTreePanel = Ext.create('Ext.tree.Panel', {
+        rootVisible: false,
+        root: {
+            expanded: true,
+            children: [
+            { id: "020", text: "系统操作日志", leaf: true, href: '#' },
+            { id: "021", text: "文件操作日志", leaf: true, href: '#' }
+            ]
+        },
+        listeners:{
+            'itemclick' : function(view, rcd, item, idx, event, eOpts) {
+                if(rcd.isLeaf()){
+                    event.stopEvent();
+                    var href=rcd.data.href;
+                    if(!href)return;
+                    CreateIframeTab('MainTabPanel', rcd.data.id, rcd.data.text, href);
+                }
+            }
+        }
+    });    
+    var emailTreePanel = Ext.create('Ext.tree.Panel', {
+        rootVisible: false,
+        root: {
+            expanded: true,
+            children: [
+            { id: "030", text: "查看邮件列表", leaf: true, href: '#' },
+            ]
+        },
+        listeners:{
+            'itemclick' : function(view, rcd, item, idx, event, eOpts) {
+                if(rcd.isLeaf()){
+                    event.stopEvent();
+                    showpasswordpanel();
+                    //CreateIframeTab('MainTabPanel', rcd.data.id, rcd.data.text, href);
+                }
+            }
+        }
+    });
+    var generatedocPanel = Ext.create('Ext.tree.Panel', {
+        rootVisible: false,
+        root: {
+            expanded: true,
+            children: [
+            { id: "040", text: "生成目录", leaf: true, href: '#' }
+            <? if(json_decode($login_user)->u_grade=='1' || json_decode($login_user)->u_grade=='99'){?> ,{ id: "041", text: "生成公共文件目录", leaf: true, href: '#' } <? } ?>
+            ]
+        },
+        listeners:{
+            'itemclick' : function(view, rcd, item, idx, event, eOpts) {
+                if(rcd.isLeaf()){
+                    event.stopEvent();
+                    var href=rcd.data.href;
+                    if(!href)return;
+                    CreateIframeTab('MainTabPanel', rcd.data.id, rcd.data.text, href);
+                }
+            }
+        }
+    });
+    Ext.create('Ext.container.Viewport', {
+        layout: 'border',
+        items: [{
+            height : 28,  
+            //html : '文件系统管理平台',  
+            region : 'north',  
+            //split : true,  
+            bbar : [{  
+                iconCls : 'icon-user',  
+                text : login_user.u_name  
+            },'-',{
+                text : '当前角色：['+login_user.u_gradename+']'
+            },'-',{  
+                text : Ext.Date.format(new Date(),'Y年m月d日')  
+            },
+            <? if(json_decode($login_user)->u_grade=='99'||json_decode($login_user)->u_grade=='98'||json_decode($login_user)->u_grade=='100'){?> '-',{  
+            text : '修改密码',  
+            iconCls : 'icon-user-edit', 
+            handler: function(){
+            alterpwd();
+        } 
+    },<? } ?> '-',{  
+        xtype:'button',
+        text : '退出',  
+        iconCls : 'icon-logout',
+        listeners: {
+            click: function(){
+                window.location.href=base_path+'index.php?c=login&a=loginout'; 
+            }
+        }
+    }]
+    }, {
+        region: 'west',
+        collapsible: true,
+        split: true,
+        id: 'MainMenu',
+        title: '系统导航',
+        width: 150,
+        layout: 'accordion',
+        items: [{
+            title: '目录和文件管理',
+            layout: 'fit',
+            items: [docTreePanel]
+        },
+        <? if(json_decode($login_user)->u_grade!='0'){?>
+            {
+                title: '工作组和组员管理',
+                layout: 'fit',
+                items: [personTreePanel]
+            },
+            <? } ?>
+        {
+            title: '日志管理',
+            layout: 'fit',
+            items: [logTreePanel]
+        },{
+            title: '生成目录',
+            layout: 'fit',
+            items: [generatedocPanel] //
+        }
+        <? if(json_decode($login_user)->u_email!='jiancha@cmecfs.com' && json_decode($login_user)->u_email!='guanli@cmecfs.com' && json_decode($login_user)->u_email!='admin@admin.com'){?>    
+            ,{
+                title: '邮件管理',
+                layout: 'fit',
+                items: [emailTreePanel]
+            }
+            <? } ?> 
+        ]
+        // could use a TreePanel or AccordionLayout for navigational items
+    }, {
+        region: 'south',
+        collapsible: false,
+        html: '<div style="text-align:center;">&copy;文件管理系统<div>',
+        frame: true,
+        split: false,
+        height: 25
+    }, /*{
+    region: 'east',
+    title: '在线用户',
+    collapsible: true,
+    split: true,
+    width: 150
+    }, */{
+        region: 'center',
+        xtype: 'tabpanel', 
+        id: 'MainTabPanel',
+        activeTab: 0,
+        activeCls:"refresh",
+        autoDestroy: false,
+        closeAction: 'hide', 
+        items: {
+            title: '项目管理',
+            id: 'tab-002',
+            items: [
+            Ext.create('Ext.panel.Panel', {
+                width: '100%',
+                height: '100%',
+                preventHeader: true,   
+                layout: 'border',
+                items: [{
+                    title: '项目列表',
+                    region:'west',
+                    width: 250,
+                    split:true,
+                    collapsible: false,   // make collapsible
+                    layout: 'fit',
+                    items:[projectTreePanel]
+                },{
+                    region: 'center',     // center region is required, no width/height specified
+                    id: 'displayCenterPanel',
+                    autoScroll: true
+                }
+                ],
+                renderTo: Ext.getBody()
+            })]
+        }
+    }]
+    });
+    //projectTreePanel.setHeight($("#westprojectdocumentmenu").innerHeight()-30);
+    docTreePanel.on({
+        //目录树单击事件
+        'itemclick' : function(view, rcd, item, idx, event, eOpts) {
+            if(rcd.isLeaf()){
+                //阻止事件传播
+                event.stopEvent();
+                var href=rcd.data.href;
+                if(!href)return;
+                if(rcd.raw.id=='001'){
+                    showAddprojectPanel();
+                }else if(rcd.raw.id=='005'){
+                    showaddsharedocPanel();
+                }else{
+                    CreateIframeTab('MainTabPanel', rcd.data.id, rcd.data.text, href);
+                }
+            }
+        },
+        //目录树双击击事件
+        'itemdblclick' : function(view, rcd, item, idx, event, eOpts) {
+            var dirid = rcd.get('id'); //节点id
+            var dirtype = rcd.raw.dirtype; //自定义数据
+        },
+        //目录数右键事件
+        'itemcontextmenu' : function(view, rcd, item, idx, event, eOpts) {
+            event.preventDefault();
+        },
+        scope : this
+    });
+    personTreePanel.on({
+        //目录树单击事件
+        'itemclick' : function(view, rcd, item, idx, event, eOpts) {
+            //阻止事件传播
+            event.stopEvent();
+            var href=rcd.data.href;
+            if(rcd.raw.id=='011'){
+                CreateIframeTab('MainTabPanel', '010', '工作组列表', href);
+                addworkgroupform(); 
+            }else{
+                CreateIframeTab('MainTabPanel', rcd.data.id, rcd.data.text, href);
+            }
+        },
+        scope : this
+    });
+    });
+    var showpanel={};
+    function CreateIframeTab(tabpanelId, id, tabTitle, iframeSrc) {
+        tabId = "tab-" + id;
+        var tabpanel = Ext.getCmp(tabpanelId);
+        if (!tabpanel) return;  //未找到tabpanel，返回
+        //寻找id相同的tab
+        var tab = tabpanel.getComponent(tabId);
+        if (tab) { tabpanel.setActiveTab(tab); return; }
+        var subMainId = 'tab-' + id + '-main';
+        //新建一个tab，并将其添加到tabpanel中
+        //tab = Ext.create('Ext.tab.Tab', );
+        //Ext.getBody().mask('加载模板中……'); 
+        if(!tab){
+            switch(id){
+                case '001': showpanel=showAddprojectPanel();break;
+                case '003': showpanel=showSearchPanel();break;
+                case '004': showpanel=sharefsPanel;break;
+                //case '010': showpanel=showworkgroupPanel();break;
+                case '010': showpanel=workgroupPanel;break;
+                case '020': showpanel=showsysloggrid();break;
+                case '021': showpanel=showdocloggrid();break;
+                //case '005': showpanel=showaddsharedocPanel();break;
+                case '040': showpanel=showgeneratedocPanel();break;
+                case '041': showpanel=showgeneratesharedocPanel();break;
+            }
+            tab = tabpanel.add({
+                title: tabTitle,
+                id: tabId,
+                closable: true,
+                closeAction: 'hide',
+                items:[showpanel]
+            }).doLayout();
+
+            tabpanel.setActiveTab(tab);
+            if(id=='010'){
+                p=parseInt(login_user.u_grade)>90?'':login_user.u_targetgroup;
+                showWorkGroupgrid(p); 
+            }
+
+        }else{
+            tabpanel.setActiveTab(tab);
+        }
+    }
+    function alterpwd(){
+        var alterpwdformPanel = Ext.create('Ext.form.Panel', {
+            frame: true,
+            bodyStyle: 'padding: 5 5 5 5',
+            defaultType: 'textfield',
+            buttonAlign: 'center',
+            defaults: {
+                labelSeparator : '：',
+                labelWidth: 80,
+                width: 220,
+                allowBlank: false,
+                blankText: '不允许为空',
+                labelAlign: 'left',
+                msgTarget: 'under'  
+            },
+            items: [{
+                xtype:'textfield',
+                name: 'oldpwd',
+                inputType: 'password',
+                fieldLabel: '原密码'
+            },{
+                xtype:'textfield',
+                name: 'newpwd',
+                inputType: 'password',
+                fieldLabel: '新密码'
+            },{
+                xtype:'textfield',
+                name: 'newpwdconfirm',
+                inputType: 'password',
+                fieldLabel: '确认密码'
+            }],
+            buttons:[{
+                text: '修改',
+                handler: function(){
+                    if(alterpwdformPanel.form.isValid()){
+                        alterpwdformPanel.getForm().submit({
+                            url: base_path+'index.php?c=usergroup&a=alterpwd',
+                            method: 'post',
+                            timeout: 30,
+                            params: alterpwdformPanel.getForm().getValues,
+                            success: function(form, action){
+                                win.hide();
+                                Ext.Msg.alert('温馨提示', action.result.msg);
+                                location.href='/index.php?c=login';
+                            },
+                            failure: function(form, action){
+                                Ext.Msg.alert('温馨提示', action.result.msg); 
+                            }
+                        });
+                    }
+                }
+            },{
+                text: '重置',
+                handler: function(){
+                    alterpwdformPanel.form.reset();
+                }
+            }]
+        });
+        var win = Ext.create('Ext.window.Window',{
+            layout:'fit',
+            width:300,
+            closeAction:'hide',
+            resizable: false,
+            shadow: true,
+            modal: true,
+            closable : true,
+            items: alterpwdformPanel
+        });
+        alterpwdformPanel.form.reset();
+        alterpwdformPanel.isAdd = true;
+        win.setTitle('修改密码');
+        win.show();
+    }
+</script>
+<script type="text/javascript">
+    Ext.window.MessageBox.prototype.buttonText = { 
+        ok: "确定", 
+        cancel: "取消", 
+        yes: "是", 
+        no: "否" 
+    }; 
+    Ext.MessageBox = Ext.Msg = new Ext.window.MessageBox();
+</script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/swfupload.js"></script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/plugins/swfupload.speed.js"></script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/plugins/swfupload.queue.js"></script>
+<script type="text/javascript" src="<?=$js_path?>documentPanel.js"></script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/UploadPanel.js"></script>
+<!-- /*共享文档上传*/ -->
+<script type="text/javascript" src="<?=$js_path?>swfupload/UploadsharePanel.js"></script>
+
+<script type="text/javascript" src="<?=$js_path?>addprojectPanel.js"></script> 
+
+<script type="text/javascript" src="<?=$js_path?>log.js"></script>
+<script type="text/javascript" src="<?=$js_path?>search.js"></script>
+<!-- /*生成目录*/ -->
+<script type="text/javascript" src="<?=$js_path?>generatedoc.js"></script>
+<!-- /*邮件列表*/ -->
+<script type="text/javascript" src="<?=$js_path?>email.js"></script>
+<!-- /*共享列表*/ -->
+<script type="text/javascript" src="<?=$js_path?>sharePanel.js"></script>
+
+<!--页主体结束-->
+<? include("footer.html"); ?>

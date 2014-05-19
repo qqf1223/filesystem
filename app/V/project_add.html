@@ -1,0 +1,90 @@
+<? include("header.html"); ?>
+<!--页主体开始-->
+<script type="text/javascript">
+    <? if($login_user_info['u_grade'] >90){   ?>
+        var login_user = <?=$login_user?>;
+        Ext.Loader.setConfig({enabled: true});
+        Ext.onReady(function(){
+            Ext.QuickTips.init();
+            var addprojectform = new Ext.form.Panel({
+                title: '添加项目',
+                width: 380,
+                //height: 150,
+                autoHeight : true,
+                renderTo: 'trxx',
+                frame: true,
+                bodyStyle: 'padding: 5 5 5 5',
+                defaultType: 'textfield',
+                buttonAlign: 'center',
+                id: 'projectpanel',
+                defaults: {
+                    autoFitErrors: false,
+                    labelSeparator : '：',
+                    labelWidth: 80,
+                    width: 300,
+                    allowBlank: false,
+                    blankText: '不允许为空',
+                    labelAlign: 'left',
+                    msgTarget: 'under'  
+                },
+                items: [{
+                    xtype:'hiddenfield',
+                    name: 'login_user_id',
+                    value: login_user.u_id
+                },{
+                    xtype:'hiddenfield',
+                    name: 'login_user_group',
+                    value: login_user.u_parent
+                },{
+                    xtype:'textfield',
+                    name: 'projectname',
+                    id: 'projectname',
+                    fieldLabel: '项目名称'
+                }, {
+                    xtype:'textareafield',
+                    width: 300,
+                    name: 'projectintro',
+                    id: 'projectintro',
+                    fieldLabel: '项目说明'
+                }],
+                buttons:[{
+                    text: '添加',
+                    handler: function(){
+                        if(addprojectform.form.isValid()){
+                            addprojectform.getForm().submit({
+                                url: '<?=$base_path?>index.php?c=document&a=addproject',
+                                method: 'post',
+                                timeout: 30,
+                                params: addprojectform.getForm().getValues,
+                                success: function(form, action){
+                                    Ext.getCmp('projectname').setValue(' ');
+                                    Ext.getCmp('projectintro').setValue(' ');
+                                    Ext.Msg.alert('温馨提示', action.result.msg);
+                                    parent.location.reload();
+                                },
+                                failure: function(form, action){
+                                    //console.log(action.result);
+                                    Ext.Msg.alert('温馨提示', action.result.msg);
+                                }
+                            });
+                        }
+                    }
+                }]
+            });
+        });
+        <? }else{ ?>
+        Ext.onReady(function(){
+            Ext.Msg.show({  
+                title:'提示',
+                closable: false,
+                modal:true, 
+                msg:'你没有此权限， 请联系系统管理员', 
+                icon:Ext.MessageBox.WARNING,  
+            }); 
+        })
+
+        <? } ?>
+</script>
+<div id="trxx" style="margin-top: 50px;margin-left:250px" ></div>
+<!--页主体结束-->
+<? include("footer.html"); ?>

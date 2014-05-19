@@ -1,0 +1,31 @@
+<?php include("header.html"); ?>
+<script type="text/javascript" src="<?=$js_path?>swfupload/UploadPanel.js"></script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/swfupload.js"></script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/plugins/swfupload.speed.js"></script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/plugins/swfupload.queue.js"></script>
+<script type="text/javascript">
+Ext.onReady(function(){
+	new Ext.window.Window({
+		width : 650,
+		title : '上传文件',
+		height : 300,
+		layout : 'fit',
+		items : [
+			{
+				xtype:'fileuploadPanel',
+				border : false,
+				fileSize : 1024*4000,//限制文件大小单位是字节
+				uploadUrl : 'upload-files.shtml',//提交的action路径
+				flashUrl : 'js/swfupload/swfupload.swf',//swf文件路径
+				filePostName : 'uploads', //后台接收参数
+				fileTypes : '*.*',//可上传文件类型
+				postParams : {savePath:'upload\\'} //http请求附带的参数
+			}
+		]
+	}).show();
+	
+});
+</script>
+<div id="div1"></div>
+</body>
+</html>

@@ -1,0 +1,467 @@
+<? include("header.html"); ?>
+<script type="text/javascript" src="<?=$js_path?>swfupload/UploadPanel.js"></script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/swfupload.js"></script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/plugins/swfupload.speed.js"></script>
+<script type="text/javascript" src="<?=$js_path?>swfupload/plugins/swfupload.queue.js"></script>
+<!--页主体开始-->
+<script type="text/javascript">
+    Ext.Loader.setConfig({enabled: true}); //动态加载类
+    Ext.onReady(function () {
+        var login_user = <?=$login_user?>;
+        var mystore = new Ext.data.TreeStore({
+            //nodeParam: 'fs_id',
+            proxy:{
+                type: 'ajax',
+                url: '<?=$base_path?>' + "index.php?c=document&a=listdocument&uid="+login_user.u_id+"&fs_id=",
+                //data: <?=$login_user_tree?>,
+                reader: 'json'
+            },
+            autoLoad: false
+        });
+        var projectTreePanel = Ext.create('Ext.tree.Panel', {
+            rootVisible: false,
+            singleExpand: true,
+            root:{
+                name: '中国机械设备工程股份有限公司',
+                id:'1',
+                children: <?=$login_user_tree?>,
+                expanded: true,
+
+            },
+            border:1,
+            useArrows:true,
+            store: mystore,
+            renderTo: Ext.getBody()
+
+        });
+
+        Ext.create('Ext.container.Viewport', {
+            layout: 'border',
+            items: [{
+                region: 'south',
+                collapsible: false,
+                html: '<div style="text-align:center;">&copy;中国机械设备工程股份有限公司<div>',
+                split: false,
+                height: 22
+            }, {
+                region: 'west',
+                title: '项目列表',
+                //collapsible: true,
+                id:'projectlist',
+                split: true,
+                width:200,
+                autoScroll : true,
+                items:projectTreePanel
+            }, {
+                region: 'center',
+                id: 'documentlist',
+                html:'<h1></h1>',
+                autoScroll: true
+            }]
+        });
+        projectTreePanel.setHeight(Ext.getCmp('projectlist').getHeight()-28);
+
+        projectTreePanel.on({
+            //目录树单击事件
+            'itemclick' : function(view, rcd, item, idx, event, eOpts) {
+                event.stopEvent();
+                //Ext.getCmp('documentlist').html();
+                /*
+                if(rcd.isLeaf()){
+                //阻止事件传播
+                event.stopEvent();
+                var href=rcd.data.href;
+                if(!href)return;
+                window.location.href='#';// + href;
+                //CreateIframeTab('MainTabPanel', rcd.data.id, rcd.data.text, href);
+                }*/
+            },
+            //目录树双击击事件
+            'itemdblclick' : function(view, rcd, item, idx, event, eOpts) {
+                //console.log(111);
+                //var dirid = rcd.get('id'); //节点id
+                //var dirtype = rcd.raw.dirtype; //自定义数据
+            },
+            'beforeitemexpand': function(rcd, eOpts){
+                mystore.setProxy({
+                    type:'ajax', 
+                    url:'<?=$base_path?>' + "index.php?c=document&a=listdocument&fs_id="+rcd.raw.fs_id+'&uid='+login_user.u_id,
+                    reader:'json'
+                });
+            },
+            //目录数右键事件
+            'itemcontextmenu' : function(view, rcd, item, idx, event, eOpts) {
+                event.preventDefault();
+                event.stopEvent();
+                var menu = new Ext.menu.Menu({
+                    float: true,
+                    items:[{
+                        text: '编辑',
+                        handler: function(){
+                            this.up("menu").hide();
+
+                            editprojectform = new Ext.form.Panel({
+                                title: '<center>编辑【'+rcd.raw.fs_name+'】</center>',
+                                width: 380,
+                                //height: 150,
+                                id: 'editprojectform',
+                                autoHeight : true,
+                                frame: true,
+                                bodyStyle: 'padding: 5 5 5 5',
+                                defaultType: 'textfield',
+                                buttonAlign: 'center',
+                                defaults: {
+                                    autoFitErrors: false,
+                                    labelSeparator : '：',
+                                    labelWidth: 80,
+                                    width: 300,
+                                    allowBlank: false,
+                                    blankText: '不允许为空',
+                                    labelAlign: 'left',
+                                    msgTarget: 'under'  
+                                },
+                                items: [{
+                                    xtype:'hiddenfield',
+                                    name: 'project_doc_id',
+                                    value: rcd.raw.fs_id
+                                },{
+                                    xtype:'hiddenfield',
+                                    name: 'login_user_id',
+                                    value: login_user.u_id
+                                },{
+                                    xtype:'hiddenfield',
+                                    name: 'login_user_group',
+                                    value: login_user.u_parent
+                                },{
+                                    xtype:'hiddenfield',
+                                    name: 'project_doc_oldname',
+                                    value: rcd.raw.fs_name
+                                },{
+                                    xtype:'hiddenfield',
+                                    name: 'project_doc_parentname',
+                                    value: rcd.raw.fs_name
+                                },{
+                                    xtype:'textfield',
+                                    name: 'project_doc_name',
+                                    id: 'project_doc_name',
+                                    fieldLabel: '名称',
+                                    value:rcd.raw.fs_name
+                                }, {
+                                    xtype:'textareafield',
+                                    width: 300,
+                                    name: 'project_doc_intro',
+                                    id: 'project_doc_intro',
+                                    fieldLabel: '说明',
+                                    value:rcd.raw.fs_intro
+                                }],
+                                buttons:[{
+                                    text: '确定',
+                                    handler: function(){
+                                        if(editprojectform.form.isValid()){
+                                            editprojectform.getForm().submit({
+                                                url: '<?=$base_path?>index.php?c=document&a=editdocument',
+                                                method: 'post',
+                                                timeout: 30,
+                                                params: editprojectform.getForm().getValues,
+                                                success: function(form, action){
+                                                    Ext.Msg.alert('温馨提示', action.result.msg);
+                                                    mystore.setProxy({
+                                                        type:'ajax', 
+                                                        url:'<?=$base_path?>' + 'index.php?c=document&a=refresh&uid='+login_user.u_id+"&groupid="+login_user.u_parent,
+                                                        reader:'json'
+                                                    });
+                                                    mystore.load();
+                                                },
+                                                failure: function(form, action){
+                                                    Ext.Msg.alert('温馨提示', action.result.msg);
+                                                }
+                                            });
+                                        }
+                                    }
+                                }]
+                            });
+                            Ext.getCmp('documentlist').remove(Ext.getCmp('documentlist').items.get(0));
+                            Ext.getCmp('documentlist').add(editprojectform);;
+
+                        }
+                    },{
+                        text: '新建目录',
+                        disabled:!Boolean(parseInt(rcd.raw.fs_isdir)),
+                        handler: function(){
+                            this.up("menu").hide();
+
+
+                            projectform = new Ext.form.Panel({
+                                title: '<center>新建目录</center>',
+                                width: 380,
+                                //height: 150,
+                                id: 'projectform',
+                                autoHeight : true,
+                                frame: true,
+                                bodyStyle: 'padding: 5 5 5 5',
+                                defaultType: 'textfield',
+                                buttonAlign: 'center',
+                                defaults: {
+                                    autoFitErrors: false,
+                                    labelSeparator : '：',
+                                    labelWidth: 80,
+                                    width: 300,
+                                    allowBlank: false,
+                                    blankText: '不允许为空',
+                                    labelAlign: 'left',
+                                    msgTarget: 'under'  
+                                },
+                                items: [{
+                                    xtype:'hiddenfield',
+                                    name: 'project_doc_parentid',
+                                    value: rcd.raw.fs_id
+                                },{
+                                    xtype:'hiddenfield',
+                                    name: 'login_user_id',
+                                    value: login_user.u_id
+                                },{
+                                    xtype:'hiddenfield',
+                                    name: 'login_user_group',
+                                    value: login_user.u_parent
+                                },{
+                                    xtype:'hiddenfield',
+                                    name: 'project_doc_parentname',
+                                    value: rcd.raw.fs_name
+                                },{
+                                    xtype:'textfield',
+                                    name: 'project_doc_name',
+                                    id: 'project_doc_name',
+                                    fieldLabel: '名称'
+                                }, {
+                                    xtype:'textareafield',
+                                    width: 300,
+                                    name: 'project_doc_intro',
+                                    id: 'project_doc_intro',
+                                    fieldLabel: '说明'
+                                }, {
+                                    xtype:'textareafield',
+                                    width: 300,
+                                    name: 'project_doc_intro',
+                                    id: 'project_doc_intro',
+                                    fieldLabel: '说明'
+                                }],
+                                buttons:[{
+                                    text: '添加',
+                                    handler: function(){
+                                        if(projectform.form.isValid()){
+                                            projectform.getForm().submit({
+                                                url: '<?=$base_path?>index.php?c=document&a=adddocument',
+                                                method: 'post',
+                                                timeout: 30,
+                                                params: projectform.getForm().getValues,
+                                                success: function(form, action){
+                                                    Ext.getCmp('project_doc_name').setValue(' ');
+                                                    Ext.getCmp('project_doc_intro').setValue(' ');
+                                                    Ext.Msg.alert('温馨提示', action.result.msg);
+                                                    mystore.setProxy({
+                                                        type:'ajax', 
+                                                        url:'<?=$base_path?>' + 'index.php?c=document&a=refresh&uid='+login_user.u_id+"&groupid="+login_user.u_parent,
+                                                        reader:'json'
+                                                    });
+                                                    mystore.load();
+                                                },
+                                                failure: function(form, action){
+                                                    //console.log(action.result);
+                                                    Ext.Msg.alert('温馨提示', action.result.msg);
+                                                }
+                                            });
+                                        }
+                                    }
+                                }]
+                            });
+                            Ext.getCmp('documentlist').remove(Ext.getCmp('documentlist').items.get(0));
+                            Ext.getCmp('documentlist').add(projectform);;
+                        }
+                    },{
+                        text:'上传文件',
+                        //iconCls:'leaf', 
+                        disabled:!Boolean(parseInt(rcd.raw.fs_isdir)),
+                        handler: function(){
+                            this.up('menu').hide();
+                            var uid = login_user.u_id;
+                            var groupid = login_user.u_parent;
+                            var uppanel = Ext.create('Org.fileupload.Panel',{
+                                width : 550,
+                                title : '上传文件',
+                                //draggable:true,
+                                items : [
+                                {
+                                    border : false,
+                                    fileSize : 1024*4000,//限制文件大小单位是字节
+                                    uploadUrl : '<?=$base_path?>index.php?c=upload',//提交的action路径
+                                    flashUrl : '<?=$js_path?>swfupload/swfupload.swf',//swf文件路径
+                                    filePostName : 'uploads', //后台接收参数
+                                    fileTypes : '*.*',//可上传文件类型
+                                    postParams : {savePath:rcd.raw.fs_fullpath, fs_id:rcd.raw.fs_id, uid:uid, groupid:groupid} //http请求附带的参数
+                                }
+                                ]
+                            });
+                            Ext.getCmp('documentlist').remove(Ext.getCmp('documentlist').items.get(0));
+                            Ext.getCmp('documentlist').add(uppanel).doLayout();
+
+                        }
+                    },{
+                        text:'权限设置',
+                        //iconCls:'leaf',
+                        disabled:!Boolean(parseInt(rcd.raw.fs_isdir)),
+                        handler: function(){
+                            this.up('menu').hide();
+
+                            powersetting = new Ext.form.Panel({
+                                title: '<center>目录权限设置</center>',
+                                width: 380,
+                                //height: 150,
+                                id: 'powersetting',
+                                autoHeight : true,
+                                frame: true,
+                                bodyStyle: 'padding: 5 5 5 5',
+                                defaultType: 'textfield',
+                                buttonAlign: 'center',
+                                defaults: {
+                                    autoFitErrors: false,
+                                    labelSeparator : '：',
+                                    labelWidth: 100,
+                                    width: 280,
+                                    allowBlank: true,
+                                    labelAlign: 'left',
+                                    msgTarget: 'under'  
+                                },
+                                items: [{
+                                    xtype:'hiddenfield',
+                                    name: 'project_doc_id',
+                                    value: rcd.raw.fs_id
+                                },{
+                                    xtype:'hiddenfield',
+                                    name: 'project_doc_name',
+                                    value: rcd.raw.fs_name
+                                },{
+                                    xtype:'textfield',
+                                    fieldLabel: '目录路径',
+                                    readOnly:true,
+                                    value:rcd.raw.fs_name
+                                }, {
+                                    xtype:'combo',
+                                    //width: 300,
+                                    name: 'workgroup_id',
+                                    id: 'workgroup_id',
+                                    emptyText : '请选择工作组',
+                                    listConfig:{
+                                        emptyText: '请选择工作组',
+                                        loadingText : '正在加载工作组信息',
+                                        maxHeight: 100
+                                    },
+                                    triggerAction: 'all',
+                                    queryMode: 'remote',
+                                    editable: false,
+                                    store: new Ext.data.Store({
+                                        autoLoad : false,
+                                        stortId: 'workgroupstore',
+                                        proxy : {
+                                            type : 'ajax',
+                                            url : '<?=$base_path?>index.php?c=usergroup&a=listworkgroup',
+                                            actionMethods : 'post',
+                                            reader : 'json'
+                                        },
+                                        fields : ['u_id', 'u_name']
+                                    }),
+                                    valueField: 'u_id',
+                                    displayField: 'u_name',
+                                    fieldLabel: '请选择工作组',
+                                    listeners:{
+                                        'select':function(combo, records, options){
+                                            Ext.getCmp('user_id').clearValue();
+                                            Ext.getCmp('user_id').store.load({
+                                                params:{
+                                                    groupid: combo.getValue()
+                                                }
+                                            });
+                                        }/*,
+                                        'afterRender' : function(combo) {
+                                        console.log(combo);
+                                        var firstValue = combo.store.read.jsonData[0].text;
+                                        combo.setValue(firstValue);//同时下拉框会将与name为firstValue值对应的 text显示
+                                        } */
+                                    }
+                                }, {
+                                    xtype:'combo',
+                                    name: 'user_id',
+                                    id: 'user_id',
+                                    emptyText : '请选择组员', 
+                                    listConfig:{
+                                        loadMask:false
+                                        //loadingText : '正在加载组员信息',
+                                    },
+                                    triggerAction: 'all',
+                                    queryMode: 'local',
+                                    editable: false,
+                                    fieldLabel: '请选择组员',
+                                    store: new Ext.data.Store({   
+                                        storeId:'personStore',   
+                                        proxy: {   
+                                            type: 'ajax',   
+                                            url : '<?=$base_path?>index.php?c=usergroup&a=listgroupuser',
+                                            reader: 'json' 
+                                        },   
+                                        fields: ['u_id', 'u_name'],  
+                                        autoLoad:false
+                                    }),
+                                    valueField: 'u_id',
+                                    displayField: 'u_name'
+                                }],
+                                buttons:[{
+                                    text: '修改',
+                                    handler: function(){
+                                        if(powersetting.form.isValid()){
+                                            powersetting.getForm().submit({
+                                                url: '<?=$base_path?>index.php?c=document&a=adddocpower',
+                                                method: 'post',
+                                                timeout: 30,
+                                                params: powersetting.getForm().getValues,
+                                                success: function(form, action){
+                                                    Ext.Msg.alert('温馨提示', action.result.msg);
+                                                },
+                                                failure: function(form, action){
+                                                    //console.log(action.result);
+                                                    Ext.Msg.alert('温馨提示', action.result.msg);
+                                                }
+                                            });
+                                        }
+                                    }
+                                }]
+                            });
+                            Ext.getCmp('documentlist').remove(Ext.getCmp('documentlist').items.get(0));
+                            Ext.getCmp('documentlist').add(powersetting);;
+
+
+                        }
+                    }, {
+                        text: '刷新',
+                        handler: function(){
+                            this.up("menu").hide();
+                            while (delNode = projectTreePanel.getRootNode().childNodes[0]) {
+                                projectTreePanel.getRootNode().removeChild(delNode);
+                            }
+                            mystore.setProxy({
+                                type:'ajax', 
+                                url:'<?=$base_path?>' + 'index.php?c=document&a=refresh&uid='+login_user.u_id+"&groupid="+login_user.u_parent,
+                                reader:'json'
+                            });
+                            mystore.load();
+                        }
+                    }]
+                }).showAt(event.getXY());
+            },
+            scope : this
+        });
+
+    });
+
+</script>
+
+<!--页主体结束-->
+<? include("footer.html"); ?>

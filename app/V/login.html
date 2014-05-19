@@ -1,0 +1,276 @@
+<? include("header.html"); ?>
+<style type="text/css">
+    body{
+        background: #d5e4f2;
+    }
+    .front-container {
+        display: block;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        max-height: 900px;
+        min-height: 320px;
+        position: absolute;
+    }
+    .front-bg {
+        height: 200%;
+        left: -50%;
+        position: fixed;
+        width: 200%;
+    }
+    .front-image {
+        display: block;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        margin: auto;
+        min-height: 50%;
+        min-width: 50%;
+    }
+    .front-card{
+        height: 200px;
+        width: 480px;
+        margin: -100px 0 0 -240px;
+        top: 50%;
+        left: 50%;
+        position: absolute;
+        background: linear-gradient(to top, #FFFFFF, #DDDDDD);
+        border-bottom: 1px solid #CCCCCC;
+        border-left: 1px solid #EEEEEE;
+        border-right: 1px solid #EEEEEE;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+        border-radius: 4px 4px 4px 4px;
+    }
+    .front-signin {
+        width: 356px;
+        height: 160px;
+        top: 0;
+        left: 0;
+        position: absolute;
+        margin: 24px 0 0 110px;
+    }
+    .signin-label {
+        color: #999999;
+        font: bold 24px/64px "宋体";
+        margin: 12px 0 0 20px;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+    .ntes-nav {
+        width: 100%;
+        margin: 0 auto;
+        height: 50px;
+        line-height: 50px;
+        position: fixed;
+        _position: absolute;
+        z-index: 9999;
+        left: 0;
+        top: 10%;
+        background: rgba(0, 0, 0, 0.0);
+        color: #ffffff;
+        font-family: 华文新魏;
+        font-size: 25px;
+        text-align: center;
+    }
+</style>
+<div class="ntes-nav">温馨提示：建议每日登陆该系统，使其成为工作好助手。</div>
+<div class="front-container">
+    <div class="front-bg">
+        <img class="front-image" src="image/login_bg.jpg">
+    </div>
+    <div class="front-card">
+        <div class="signin-label">
+            <ul>
+                <li>用户名</li>
+                <li>密　码</li>
+            </ul>
+        </div>
+        <div id="tr" class="front-signin"></div>
+    </div>
+</div>
+<!--页主体开始-->
+<script type="text/javascript">
+    var uemail = '';
+    var cookie_arr = document.cookie.split(';');
+    for(var i=0; i<cookie_arr.length; i++){
+        var temp = cookie_arr[i].split('=');
+        if(temp[0] == 's_useremail'){
+            uemail = unescape(temp[1]);break; 
+        }    
+    }    
+    Ext.onReady(function(){
+        Ext.QuickTips.init();
+        var loginform=new Ext.form.Panel({
+            //title: '文件管理系统用户登录',
+            //autoHeight : true,
+            //width: 841,
+            //height:200,
+            //frame: true,
+            renderTo:　'tr',
+            buttonAlign: 'left',
+            //cls:'center',          
+            defaults: {
+                //labelSeparator: '：',
+                //labelWidth: 80,
+                width: 350,
+                allowBlank: false,
+                //lableAlign: 'center',
+                msgTarget: 'under',
+            },  
+            items:  [
+            {
+                xtype:'textfield',
+                //margin:"20 0 0 20",
+                //fieldLabel: '邮 箱',
+                id: 'useremail',
+                name: 'useremail',
+                vtype: 'email',
+                blankText : '邮箱不能为空',//错误提示内容   
+                fieldCls : 'logint', 
+                formItemCls :'formItemCls',
+                value: uemail,
+                fieldStyle:{
+                    border: '1px solid #BFB1A5',
+                    background: '#ffffff',
+                    verticalAlign: 'middle',
+                    color: '#000000',
+                    height:'40px',
+                    //width: '300px'
+                    //paddingBottom: '10px' 
+                },
+                selectOnFocus:true
+            },
+            {
+                xtype:'textfield',
+                //margin:"10 0 0 0",
+                inputType: 'password',
+                id: 'userpwd',
+                name: 'userpwd',
+                //fieldLabel: '密 码',
+                blankText : '密码不能为空', //错误提示内容 
+                fieldCls : 'logint',
+                formItemCls :'formItemCls', 
+                //labelStyle: 'font:bold 20px solid;',
+                fieldStyle:{
+                    border: '1px solid #BFB1A5',
+                    background: '#ffffff',
+                    verticalAlign: 'middle',
+                    color: '#000000',
+                    height:'40px',
+                    top: '10px'
+                    //width: '300px' 
+                }     
+            }
+            ],
+
+            buttons:[
+            {
+                text: '登 录',
+                type: 'submit',
+                id: 'login',
+                minWidth:120,
+                margin:'0 0 0 30px',
+                handler: function(){
+                    if(loginform.form.isValid()){
+                        loginform.getForm().submit({
+                            url:'<?=$base_path?>index.php?c=login&a=validform',
+                            method:'post',
+                            timeout:50,
+                            waitTitle : "温馨提示",
+                            waitMsg: '正在验证登录信息',
+                            params:loginform.getForm().getValues,
+                            success: function(form, action){
+                                var obj = Ext.JSON.decode(action.response.responseText);
+                                if(!obj.judge){
+                                    window.location.href='<?=$base_path?>';
+                                }else{
+                                    showrole(obj.grade);
+                                }
+                            },
+                            failure: function(form, action){
+                                Ext.Msg.alert('温馨提示', action.result.msg); 
+                            }
+                        });
+                    }
+                }
+
+            }
+            ],
+            // 监听回车
+            listeners: {
+                afterRender: function(thisForm, options){
+                    this.keyNav = Ext.create('Ext.util.KeyNav', this.el, {
+                        enter: function(){
+                            // 筛选表格
+                            var btn = Ext.getCmp('login');
+                            btn.handler() ;
+                        },
+                        scope: this
+                    });
+                }
+            }
+        });
+    });
+    function showrole(role){
+        var roleform = Ext.create('Ext.form.Panel', {
+            autoHeight : true,
+            width: 400,
+            frame: true,
+            buttonAlign: 'center',
+            items:[{
+                xtype:'radiogroup',
+                id: 'grade',
+                margin:"10 0 0 20",
+                columns: 2,
+                vertical: true
+            }],
+            buttons:[
+            {
+                text: '确 定',
+                type: 'submit',
+                handler: function(){
+                    if(roleform.form.isValid()){
+                        roleform.getForm().submit({
+                            url:'<?=$base_path?>index.php?c=login&a=confirminfo',
+                            method:'post',
+                            timeout:50,
+                            waitTitle : "温馨提示",
+                            waitMsg: '正在验证登录信息',
+                            params:roleform.getForm().getValues(),
+                            success: function(form, action){
+                                win.hide();
+                                var obj = Ext.JSON.decode(action.response.responseText);
+                                window.location.href='<?=$base_path?>';
+                            },
+                            failure: function(form, action){
+                                if(action.result.msg){
+                                    Ext.Msg.alert('温馨提示', action.result.msg);
+                                }else{
+                                    Ext.Msg.alert('温馨提示', '操作失败！'); 
+                                }
+                            }
+                        });
+                    }
+                }
+            }]
+        });
+        Ext.getCmp('grade').add(role);
+        var win = Ext.create('Ext.window.Window',{
+            layout:'fit',
+            width:350,
+            closeAction:'destroy',
+            resizable: false,
+            shadow: true,
+            modal: true,
+            closable : true,
+            items: roleform
+        });
+        roleform.form.reset();
+        win.setTitle('选择角色');
+        win.show();
+    }
+</script>
+
+<!--页主体结束-->
+<? include("footer.html"); ?>

@@ -1,0 +1,805 @@
+<!DOCTYPE>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <title>生成文件目录 - 文件管理系统</title>
+		<style>
+			body, li, div, span, th, td, input, select { font: normal 14px/24px "宋体"; }
+			th, td { white-space:nowrap; word-wrap:break-word; }
+			.opt_form div { float: left; }
+			#inp_fs_name { font-family: Arial; }
+			.list_group, .list_user { padding: 5px; }
+			
+			#opt_button { float: left; min-height: 30px; margin-left: 10px; }
+			
+			#opt_intro { min-height:40px; clear: both; float: none; display: none; }
+			#opt_intro div { float: left; }
+			
+			#fs_tree { float: none; }
+			
+			#fs_tree_list { border-collapse:collapse; }
+			#fs_tree_list th { font-weight: bold; }
+			#fs_tree_list td { font-family: "Arial"; }
+			#fs_tree_list th, #fs_tree_list td { padding: 0 5px; }
+			.fs_name { font-family: "Courier New"; color: #000; }
+			.fs_name_1 { font-family: "Courier New"; font-weight: bold; color: #000; }
+			.fs_intro { color: #000; }
+			.count_num { font-weight: bold; font-family: Arial; margin: 0 5px; }
+			.btn_input { color: #fff; font-size: 12px; background-color: #000; text-align: center; width:16px; height:18px; line-height:18px; margin: 5px 0 0 5px; padding-left:2px; cursor: pointer; }
+			.btn_input:hover { background-color: #f33; }
+		</style>
+        <script type="text/javascript" src="<?=$js_path?>jquery_min.js"></script>
+    </head>
+    <body>
+        <div class="opt_form">
+			<div>
+			  目录编号<input id="inp_fs_name" size="20">
+			</div>
+			<div class="list_group">
+				<div>选择工作组</div>
+				<div id="div_sel_group">
+				<select id="sel_group">
+				  <option value="-1">请选择工作组</option>
+				</select>
+				</div>
+			</div>
+			<div class="list_user">
+				<div>选择组员</div>
+				<div id="div_sel_user">
+				  <select id="sel_user">
+				    <option value="-1">请选组员</option>
+				  </select>
+				</div>
+			</div>
+			<div id="opt_button">
+				<input type="button" value=" 生成目录 " onclick="generatedoc_main()">
+			</div>
+            
+		</div>
+		<div id="opt_intro">
+		  <div><span id="search_info"></span>的目录和文件共有<span id="level_count" class="count_num">1</span>级，已列出<span id="list_count" class="count_num">1</span>级</div>
+		  <div class="btn_input" onclick="list_count_change(-1)">－</div>
+		  <div class="btn_input" onclick="list_count_change(1)">＋</div>
+          <div id="opt_greate_button">
+                <input type="button" value=" 导出为EXCEL " style="margin-left:15px;" onclick="generatedoc_exe()">
+          </div>
+		</div>
+		<div id="fs_tree"></div>
+        <script type="text/javascript">
+            var login_user = <?=$login_user?>;
+            //当前登录用户有权限访问的所有目录和文件数据
+			var data_fs_tree = <?=$rs?>;
+			
+			//当前登录用户有权限访问的所有工作组
+			var data_fs_group = <?=$usergroup?>;
+			
+			//当前登录用户有权限访问的所有组员
+			var data_fs_user = <?=$user?>;
+            
+			//将JSON转为数组
+            function init_convert_json_to_array(dataJson){
+                var arrResult = new Array();
+				arr_group_has_file = new Array();
+                for(i in dataJson){
+					//如果编号是纯数字
+					if(parseInt(dataJson[i]['fs_name']) >= 0){
+						//给编号补零
+						var tmp_fs_name = '000' + dataJson[i]['fs_name'];
+						tmp_fs_name = tmp_fs_name.substr(-3);
+					}
+					//如果编号开头不是"CVP"
+					else if(dataJson[i]['fs_name'].substr(0,3) != 'CVP'){
+						var myregexp = /([A-Z]+)(\d+)/;
+						var match = myregexp.exec(dataJson[i]['fs_name']);
+						//如果编号是由字母加数字组成
+						if (match != null) {
+							//把数字部分补零
+							var tmp_fs_name = '000' + match[2];
+							tmp_fs_name = tmp_fs_name.substr(-3);
+							tmp_fs_name = match[1] + tmp_fs_name;
+						}
+						else{
+							var tmp_fs_name = dataJson[i]['fs_name'];
+						}
+					}
+					else{
+						var tmp_fs_name = dataJson[i]['fs_name'];
+					}
+                    arrResult.push( new Array(dataJson[i]['fs_id'], dataJson[i]['fs_parent'], dataJson[i]['fs_isdir'], dataJson[i]['fs_group'], dataJson[i]['fs_name'], dataJson[i]['fs_intro'], dataJson[i]['fs_size'], dataJson[i]['fs_type'], dataJson[i]['fs_haspaper'],  dataJson[i]['fs_user'], true, 0, 0, '', tmp_fs_name) );
+                }
+                return arrResult;
+				/*
+				 0: fs_id 文件id
+				 1: fs_parent 父级id
+				 2: fs_isdir 是否目录
+				 3: fs_group 所在组id
+				 4: fs_name 文件编号
+				 5: fs_intro 文件说明
+				 6: fs_size 文件大小
+				 7: fs_type 文件类型
+				 8: fs_haspaper 是否有纸版
+				 9: fs_user 用户id
+				10: 是否一级目录/所在原始数组下标
+				11: 下属目录数
+				12: 下属文件数
+				13: 所在层级字符串
+				14: 完整路径字符串
+				*/
+            }
+
+            //遍历一次原始数据，得到第一级目录
+            function init_get_first_level(arrData){
+                var data_result = new Array();
+
+                for(i in arrData){
+					arrData[i][10] = true;
+					for(var j=0; j<arrData.length; j++){
+						if(arrData[j][0] == arrData[i][1]){
+							arrData[i][10] = false;    //找到它的父目录，标记为false
+							break;
+						}
+					}
+                }
+
+                var ii = 0;	//序号计数
+				for(var i=0; i<arrData.length; i++){
+                    if(arrData[i][10]){
+						ii++;
+                        data_result.push(arrData[i]);    //将上面标为true的记录取出
+                        data_result[data_result.length-1][10] = i;    //记录它在初始数组中的下标，替换原来一级目录标记 下标10
+						data_result[data_result.length-1][11] = 0;	//用于记录子节点中目录数量 下标 11
+						data_result[data_result.length-1][12] = 0;	//用于记录子节点中目录数量 下标 12
+						data_result[data_result.length-1][13] = ii;	//用于记录在当前层级的序号 下标 13
+                    }
+                }
+
+                return data_result;
+            }
+
+            //根据文件编号 遍历一次原始数据，得到第一级目录
+            function _get_first_level_byname(arrData, fsname){
+                var data_result = new Array();
+
+                for(i in arrData){
+					if(arrData[i][4] == fsname){
+                        data_result.push(arrData[i]);    //找到指定编号的文件，作为一级目录
+						data_result[0][13] = '1';	//用于记录在当前层级的序号 下标 12
+						break;
+					}
+                }
+
+                return data_result;
+            }
+
+            //根据所在组 遍历一次原始数据，得到第一级目录
+            function _get_first_level_bygroup(arrData, fsgroup){
+                var data_result = new Array();
+				var tmpDataJson = new Array();
+				
+				for(i in arrData){
+					if(arrData[i][3] == fsgroup){
+						tmpDataJson.push(arrData[i]);
+						tmpDataJson[tmpDataJson.length-1][10] = true;
+					}
+				}
+
+                for(i in tmpDataJson){
+					for(var j=0; j<tmpDataJson.length; j++){
+						if(tmpDataJson[j][0] == tmpDataJson[i][1]){
+							tmpDataJson[i][10] = false;    //找到它的父目录，标记为false
+							break;
+						}
+					}
+                }
+
+                var ii = 0;	//序号计数
+				for(var i=0; i<tmpDataJson.length; i++){
+                    if(tmpDataJson[i][10]){
+						ii++;
+                        data_result.push(tmpDataJson[i]);    //将上面标为true的记录取出
+						data_result[data_result.length-1][13] = ii;	//用于记录在当前层级的序号 下标 12
+                    }
+                }
+                return data_result;
+            }
+
+            //根据用户 遍历一次原始数据，得到第一级目录
+            function _get_first_level_byuser(arrData, fsuser){
+                var data_result = new Array();
+				var tmpDataJson = new Array();
+				for(i in arrData){
+					if(arrData[i][9] == fsuser){
+						tmpDataJson.push(arrData[i]);
+						tmpDataJson[tmpDataJson.length-1][10] = true;
+					}
+				}
+
+                for(i in tmpDataJson){
+					for(var j=0; j<tmpDataJson.length; j++){
+						if(tmpDataJson[j][0] == tmpDataJson[i][1]){
+							tmpDataJson[i][10] = false;    //找到它的父目录，标记为false
+							break;
+						}
+					}
+                }
+
+                var ii = 0;	//序号计数
+				for(var i=0; i<tmpDataJson.length; i++){
+                    if(tmpDataJson[i][10]){
+						ii++;
+                        data_result.push(tmpDataJson[i]);    //将上面标为true的记录取出
+						data_result[data_result.length-1][13] = ii;	//用于记录在当前层级的序号 下标 12
+                    }
+                }
+                return data_result;
+            }
+			
+            //清理原始数据中当前层级的数据
+            function _clear_cur_level_data(curData, allData){
+                for(var i=curData.length-1; i>=0; i--){
+                    allData.splice(curData[i][curData[i].length-1], 1);
+                }
+                return allData;
+            }
+
+            //初始化时，遍历一次原始数据，得到当前层级子节点的数据
+            function init_get_cur_level(curData, arrData){
+                var data_result = new Array();
+				
+				if(curData.length == 0 || arrData.length == 0){
+					return data_result;	//若传入参数有空值，直接返回空数组
+				}
+
+                for(i in curData){
+					var numFolder = 0;	//目录计数
+					var numFile = 0;	//文件计数
+					var ii = 0;	//序号计数
+                    for(j in arrData){
+						//把找到的子节点数据取出
+                        if(curData[i][0] == arrData[j][1]){
+							ii++;
+							data_fs_tree[j]['fs_name'] = curData[i][1]!='0' ? curData[i][4] + '-' + arrData[j][4] : arrData[j][4];	//原始数据中的编号改为完整编号字段
+							data_fs_tree[j]['fs_name'] = curData[i][1]!='0' ? curData[i][14] + '-' + arrData[j][14] : arrData[j][14];	//原始数据中的编号改为完整编号字段
+							
+                            data_result.push( arrData[j] );
+                            data_result[data_result.length-1][10] = j;	//记录在初始数组中的下标
+                            data_result[data_result.length-1][4] = curData[i][1]!='0' ? curData[i][4] + '-' + arrData[j][4] : arrData[j][4];	//完整编号 e.g. CVP01-A-1
+                            data_result[data_result.length-1][14] = curData[i][1]!='0' ? curData[i][14] + '-' + arrData[j][14] : arrData[j][14];	//完整编号 e.g. CVP01-A-001
+							data_result[data_result.length-1][13] = curData[i][13] + '.' + ii;	//当前的层级序号 e.g. 1.1  1.2  1.2.1 
+							
+							//统计子节点中目录和文件数量
+							if(arrData[j][2] == '1'){
+								numFolder++;
+							}
+							else{
+								numFile++;
+							}
+                        }
+                    }
+					curData[i][11] = numFolder;
+					curData[i][12] = numFile;
+                }
+                return new Array(curData, data_result);
+            }
+
+            //遍历一次原始数据，得到当前层级子节点的数据
+            function _get_cur_level(curData, arrData){
+                var data_result = new Array();
+				
+				if(curData.length == 0 || arrData.length == 0){
+					return data_result;	//若传入参数有空值，直接返回空数组
+				}
+
+                for(i in curData){
+					var ii = 0;	//序号计数
+                    for(j in arrData){
+						//把找到的子节点数据取出
+                        if(curData[i][0] == arrData[j][1]){
+							ii++;							
+                            data_result.push( arrData[j] );
+							data_result[data_result.length-1][13] = curData[i][13] + '.' + ii;	//当前的层级序号 e.g. 1.1  1.2  1.2.1 
+                        }
+                    }
+                }
+                return data_result;
+            }
+			
+            //将一级目录结构显示在指定的div里
+            function _list_item(divID, arrData, search_info){
+
+                var divObj = document.getElementById(divID);
+                var tmpHTML = '';
+                tmpHTML += '<table id="fs_tree_list" border="1">';
+				tmpHTML += '<tr>';
+				tmpHTML += '  <th>序号</th><th>编号</th><th>名称</th><th>纸版</th><th>本目录中<br>子目录数</th><th>本目录中<br>文件数</th>';
+				tmpHTML += '</th>';
+                for(i in arrData){
+                    tmpHTML += '<tr id="fs_id_' + arrData[i][0] + '">';
+                    tmpHTML += '  <td><strong>' + arrData[i][13] + '</strong></td>';
+					tmpHTML += '  <td>';
+					/*
+						if(arrData[i][2] == '1'){
+							tmpHTML += '<span class="folder_img">1</span>';
+						}
+					*/
+					tmpHTML += '<span class="fs_name_1">' + arrData[i][4] + '</span></td>';
+					tmpHTML += '  <td><span class="fs_intro">' + arrData[i][5] + '</span></td>';
+					tmpHTML += '  <td>' + ((arrData[i][8]=='1')?'√':'') + '</td>';
+					tmpHTML += '  <td>' + ((arrData[i][11]>0)?arrData[i][11]:'') + '</td>';
+					tmpHTML += '  <td>' + ((arrData[i][12]>0)?arrData[i][12]:'') + '</td>';
+                    tmpHTML += '</tr>';
+                }
+                tmpHTML += '</table>';
+
+                divObj.innerHTML = tmpHTML;
+				if(search_info != ''){
+					document.getElementById('search_info').textContent = search_info;	//显示搜索条件
+				}
+            }
+
+            //将数据显示在其父目录下面
+            function _list_item_in_parent(curLevel, arrData){
+
+                if(arrData.length == 0){
+                    return false;
+                }
+
+                //计算需要缩进的空格
+				var txtIndentCH = '';
+				var txtIndentEN = '';
+				for(var i=1; i<=curLevel; i++){
+					txtIndentCH += '　';
+					txtIndentEN += '&nbsp;&nbsp;';
+				}
+				var cur_rowIndex = 0;	//要插入的行序号
+				var cur_parentId = '';	//上一个处理的父节点id
+				var tableObj = document.getElementById('fs_tree_list');	//目录表格对象
+				for(i in arrData){
+					//新出现的父节点
+					if(cur_parentId != arrData[i][1]){
+						var trObj = document.getElementById('fs_id_' + arrData[i][1]);	//该父节点所在tbody的行
+						cur_rowIndex = trObj.rowIndex + 1;	//得到该父节点位置下一行的序号
+						cur_parentId = arrData[i][1];	//记录正在处理的父节点id
+					}
+					else{
+						cur_rowIndex++;
+					}
+					
+					var newTR = tableObj.insertRow(cur_rowIndex);
+					newTR.id = 'fs_id_'+arrData[i][0];
+					//序号
+					var newTD = newTR.insertCell(0);
+					newTD.innerHTML = txtIndentCH + arrData[i][13];
+					//文件编号
+					newTD = newTR.insertCell(1);
+					var tmpHTML = txtIndentCH;
+					/*
+					if(arrData[i][2] == '1'){	//如果是目录
+						tmpHTML += '<span class="folder_img">1</span>';	//在编号前加目录图标
+					}
+					else{
+						tmpHTML += '<span class="folder_img">2</span>';
+					}
+					*/
+					tmpHTML += '<span class="fs_name">' + arrData[i][4] + '</span>';
+					newTD.innerHTML = tmpHTML;
+					//文件名称
+					newTD = newTR.insertCell(2);
+					newTD.innerHTML = txtIndentCH + '<span class="fs_intro">' + arrData[i][5] + '</span>';
+					//是否有纸版
+					newTD = newTR.insertCell(3);
+					newTD.innerHTML = (arrData[i][8]=='1')?'√':'';
+					newTD.style.textAlign = 'center';
+					//目录数
+					newTD = newTR.insertCell(4);
+					if(arrData[i][11] > 0){
+						newTD.innerHTML = arrData[i][11];
+					}
+					//文件数
+					newTD = newTR.insertCell(5);
+					if(arrData[i][12] > 0){
+						newTD.innerHTML = arrData[i][12];
+					}
+                }
+            }
+
+			//点击生成目录按钮，统计目录数据并显示一级目录
+			function generatedoc_main(){
+			
+				//获取选择条件
+				var sel_fs_name = document.getElementById('inp_fs_name').value;	//按编号
+				sel_fs_name = sel_fs_name.toUpperCase();
+				document.getElementById('inp_fs_name').value = sel_fs_name;
+
+				var sel_fs_group = document.getElementById('sel_group');	//按工作组
+				var sel_fs_group_id = sel_fs_group[sel_fs_group.selectedIndex].value;
+				
+				var sel_fs_user = document.getElementById('sel_user');	//按组员
+				var sel_fs_user_id = sel_fs_user[sel_fs_user.selectedIndex].value;
+				
+				var search_info = '';	//生成目录的查询条件
+				
+				//专为生成目录准备的一级目录数据
+				first_level_data_tree = new Array();
+				
+				if(sel_fs_name != ''){
+					//按编号统计一级目录数据
+					first_level_data_tree = _get_first_level_byname(init_arrDataJson, sel_fs_name);
+					if(first_level_data_tree.length == 0){
+						document.getElementById('level_count').innerText = 0;
+						document.getElementById('list_count').innerText = 0;
+						document.getElementById('opt_intro').style.display = 'none';
+						document.getElementById('fs_tree').innerHTML = '';
+						alert('没有匹配的数据');
+						return false;
+					}
+					else{
+						//当前登录角色为组员
+						if(login_user['u_grade'] == '0'){
+							//文件的所属用户不是当前登录用户
+							if(first_level_data_tree[0][9] != login_user['u_id']){
+								document.getElementById('level_count').innerText = 0;
+								document.getElementById('list_count').innerText = 0;
+								document.getElementById('opt_intro').style.display = 'none';
+								document.getElementById('fs_tree').innerHTML = '';
+								alert('对不起，您没有权限访问该文件');
+								return false;
+							}
+						}
+						else if(login_user['u_grade'] == '1'){
+							if(first_level_data_tree[0][3] != login_user['u_group']){
+								//文件的所属工作组不是当前登录的组管理员所在的组
+								if(first_level_data_tree[0][9] != login_user['u_id']){
+									document.getElementById('level_count').innerText = 0;
+									document.getElementById('list_count').innerText = 0;
+									document.getElementById('opt_intro').style.display = 'none';
+									document.getElementById('fs_tree').innerHTML = '';
+									alert('对不起，您没有权限访问该文件');
+									return false;
+								}
+							}
+						}
+					}
+					search_info = '编号为【' + sel_fs_name + '】';
+				}
+				else if(sel_fs_user_id != '-1'){					
+					//按用户统计一级目录数据
+					first_level_data_tree = _get_first_level_byuser(init_arrDataJson, sel_fs_user_id);
+					if(first_level_data_tree.length == 0){
+						document.getElementById('level_count').innerText = 0;
+						document.getElementById('list_count').innerText = 0;
+						document.getElementById('opt_intro').style.display = 'none';
+						document.getElementById('fs_tree').innerHTML = '';
+						alert('没有匹配的数据');
+						return false;
+					}
+					else{
+						//当前登录角色为组员
+						if(login_user['u_grade'] == '0'){
+							//选择的用户不是当前登录用户
+							if(sel_fs_user_id != login_user['u_id']){
+								document.getElementById('level_count').innerText = 0;
+								document.getElementById('list_count').innerText = 0;
+								document.getElementById('opt_intro').style.display = 'none';
+								document.getElementById('fs_tree').innerHTML = '';
+								alert('对不起，您没有权限访问该文件');
+								return false;
+							}
+						}
+						else if(login_user['u_grade'] == '1'){
+							if(sel_fs_group_id != login_user['u_group']){
+								//选择的工作组不是当前登录的组管理员所在的组
+								if(first_level_data_tree[0][9] != login_user['u_id']){
+									document.getElementById('level_count').innerText = 0;
+									document.getElementById('list_count').innerText = 0;
+									document.getElementById('opt_intro').style.display = 'none';
+									document.getElementById('fs_tree').innerHTML = '';
+									alert('对不起，您没有权限访问该文件');
+									return false;
+
+								}
+							}
+						}
+					}
+					search_info = '【' + sel_fs_user[sel_fs_user.selectedIndex].textContent + '】所有';
+				}
+				else if(sel_fs_group_id != '-1'){					
+					//按编号统计一级目录数据
+					first_level_data_tree = _get_first_level_bygroup(init_arrDataJson, sel_fs_group_id);
+					if(first_level_data_tree.length == 0){
+						document.getElementById('level_count').innerText = 0;
+						document.getElementById('list_count').innerText = 0;
+						document.getElementById('opt_intro').style.display = 'none';
+						document.getElementById('fs_tree').innerHTML = '';
+						alert('没有匹配的数据');
+						return false;
+					}
+					else{
+						//当前登录角色为组员
+						if(login_user['u_grade'] == '0'){
+							alert('对不起，您没有权限访问该文件');
+							return false;
+						}
+						else if(login_user['u_grade'] == '1'){
+							if(sel_fs_group_id != login_user['u_group']){
+								//选择的工作组不是当前登录的组管理员所在的组
+								if(first_level_data_tree[0][9] != login_user['u_id']){
+									document.getElementById('level_count').innerText = 0;
+									document.getElementById('list_count').innerText = 0;
+									document.getElementById('opt_intro').style.display = 'none';
+									document.getElementById('fs_tree').innerHTML = '';
+									alert('对不起，您没有权限访问该文件');
+									return false;
+								}
+							}
+						}
+					}
+					search_info = '【' + sel_fs_group[sel_fs_group.selectedIndex].textContent + '】所属';
+				}
+				else if(login_user['u_grade'] > '1'){
+					//组管理员以上的级别可以查看所有文件
+					first_level_data_tree = init_first_level_data_tree;
+					search_info = '【全部】';
+				}
+				else{
+					document.getElementById('level_count').innerText = 0;
+					document.getElementById('list_count').innerText = 0;
+					document.getElementById('opt_intro').style.display = 'none';
+					document.getElementById('fs_tree').innerHTML = '';
+					alert('请选择生成目录的条件');
+					return false;
+				}
+				
+				cur_level = 0;
+				//保存一级目录的数据
+				all_level_data_tree = new Array();
+				all_level_data_tree.push(new Array());
+				all_level_data_tree[cur_level] = first_level_data_tree;
+				all_level_data_tree[0] = sort_array_by_fsname(all_level_data_tree[0], true);
+
+				while(1){
+					var arrTmp = _get_cur_level(all_level_data_tree[cur_level], init_arrDataJson);    //统计当前层级的子节点数据
+
+					cur_level++;    //层级指针加1
+					
+					//所有层级数组中加入当前层级数据
+					if(arrTmp.length > 0){
+						all_level_data_tree.push(new Array());
+						all_level_data_tree[cur_level] = arrTmp;
+						all_level_data_tree[cur_level] = sort_array_by_fsname(all_level_data_tree[cur_level], false);
+					}
+					else{
+						break;
+					}
+				}
+				
+				cur_level = 0;
+				document.getElementById('level_count').innerText = all_level_data_tree.length;
+				document.getElementById('list_count').innerText = cur_level + 1;
+				document.getElementById('opt_intro').style.display = 'block';
+
+				//将一级目录数据显示在目录表格里
+				_list_item('fs_tree', first_level_data_tree, search_info);
+			}
+			
+			//点击加减号按钮调整显示的目录层级列表
+			function list_count_change(num){
+				if(num != -1 && num != 1){
+					return false;
+				}
+				
+				cur_level += num;
+				if(cur_level < 0){
+					cur_level = 0;
+					return false;
+				}
+				else if(cur_level >= all_level_data_tree.length){
+					cur_level = all_level_data_tree.length - 1;
+					return false;
+				}
+				//列出相应级数的目录数据
+				document.getElementById('list_count').innerText = cur_level+1;
+
+				//将一级目录数据显示在目录表格里
+				_list_item('fs_tree', first_level_data_tree, '');
+				
+				if(cur_level > 0){
+					for(var i=1; i<=cur_level; i++){
+						_list_item_in_parent(i, all_level_data_tree[i]);
+					}
+				}
+			}
+			
+			function list_group_name(){
+				//列出所有工作组
+				var divObj = document.getElementById('list_group');
+				var tmpHTML = '';
+				tmpHTML += '<ul>';
+				for(i in data_fs_group){
+					if(_is_group_has_file(data_fs_group[i]['u_id'])){
+						tmpHTML += '<li id="g_id_' + data_fs_group[i]['u_id'] + '">';
+						tmpHTML += '<label><input type="checkbox" value="' + data_fs_group[i]['u_id'] + '" onchange="_sel_group(this)">' + data_fs_group[i]['u_name'] + '</label>';
+						tmpHTML += '</li>';
+					}
+				}
+				tmpHTML += '</ul>';
+				divObj.innerHTML = tmpHTML;
+			}
+			
+			function _sel_group(objInput){
+				if(objInput.checked){
+					arr_group_selected.push(objInput.value);
+				}
+				else{
+					for(var i=0; i<arr_group_selected.length; i++){
+						if(arr_group_selected[i] == objInput.value){
+							arr_group_selected.splice(i, 1);
+							break;
+						}
+					}
+				}
+				//如果已选择工作组数组不为空，显示生成目录按钮
+				if(arr_group_selected.length>0){
+					document.getElementById('opt_button').style.display = 'block';
+				}
+				else{
+					document.getElementById('opt_button').style.display = 'none';
+				}
+			}
+			
+			//生成工作组下拉菜单
+			function init_select_form(){
+				var objDiv = document.getElementById('div_sel_group');
+				var tmpHTML = '';
+				
+				tmpHTML += '<select id="sel_group" onchange="list_user_in_this_group(this)">';
+				tmpHTML += '<option value="-1">请选择工作组</option>';
+				for(i in data_fs_group){
+					if(data_fs_group[i]['u_name'] != '负责人组'){
+						tmpHTML += '<option value="' + data_fs_group[i]['u_id'] + '">' + data_fs_group[i]['u_name'] + '</option>';
+					}
+				}
+				tmpHTML += '</select>';
+				objDiv.innerHTML = tmpHTML;
+			}
+			
+			//生成组员下拉菜单
+			function list_user_in_this_group(objSel){
+				var objDiv = document.getElementById('div_sel_user');
+				var tmpHTML = '';
+				
+				tmpHTML += '<select id="sel_user">';
+				tmpHTML += '<option value="-1">请选择组员</option>';
+				for(i in data_fs_user){
+					if(objSel[objSel.selectedIndex].value == data_fs_user[i]['u_parent']){
+						tmpHTML += '<option value="' + data_fs_user[i]['u_id'] + '">' + data_fs_user[i]['u_name'] + '</option>';
+					}
+				}
+				tmpHTML += '</select>';
+				objDiv.innerHTML = tmpHTML;
+			}
+			
+			//按照文件编号将数组排序
+			function sort_array_by_fsname(arrData, isFirst){
+				if(arrData.length>0){
+					var loc_min = 0;
+					
+					for(var j=0; j<arrData.length-1; j++){
+						loc_min = j;
+						for(var i=j+1; i<arrData.length; i++){
+							if(arrData[loc_min][14] > arrData[i][14]){
+								loc_min = i;
+							}
+						}
+						var tmpVal = '';
+						
+						tmpVal = arrData[j];
+						arrData[j] = arrData[loc_min];
+						arrData[loc_min] = tmpVal;
+						
+						tmpVal = arrData[j][13];
+						arrData[j][13] = arrData[loc_min][13];
+						arrData[loc_min][13] = tmpVal;
+					}
+					return arrData;
+				}
+				else{
+					return arrData;
+				}
+			}
+
+            //将json转存至数组
+            var init_arrDataJson = new Array();
+            var arrDataJson = new Array();
+            //存放第一级目录
+            var init_first_level_data_tree;
+            var first_level_data_tree;
+            //存放所有层级的数据
+            var init_all_level_data_tree = new Array();
+            var all_level_data_tree = new Array();
+            //当前层级指针
+            var cur_level = 0;
+			
+			//已选择工作组
+			var arr_group_selected = new Array();
+
+			//先将目录数据转到数组
+			init_arrDataJson = init_convert_json_to_array(data_fs_tree);
+			//data_fs_tree = null;	//清除json对象
+			
+			//统计一级目录数据
+			init_first_level_data_tree = init_get_first_level(init_arrDataJson);
+			//保存一级目录的数据
+			init_all_level_data_tree = new Array();
+			init_all_level_data_tree.push(new Array());
+			init_all_level_data_tree[cur_level] = init_first_level_data_tree;
+			init_all_level_data_tree[0] = sort_array_by_fsname(init_all_level_data_tree[0], true);
+
+			while(1){
+				var arrTmp = init_get_cur_level(init_all_level_data_tree[cur_level], init_arrDataJson);    //统计当前层级的子节点数据
+				init_all_level_data_tree[cur_level] = arrTmp[0];	//更新当前层级父目录数据
+
+				cur_level++;    //层级指针加1
+				
+				//所有层级数组中加入当前层级数据
+				if(arrTmp[1].length > 0){
+					init_all_level_data_tree.push(new Array());
+					init_all_level_data_tree[cur_level] = arrTmp[1];
+					init_all_level_data_tree[cur_level] = sort_array_by_fsname(init_all_level_data_tree[cur_level], false);
+				}
+				else{
+					break;
+				}
+			}
+			
+			/*
+			init_arrDataJson = null;
+			init_first_level_data_tree = null;
+			init_all_level_data_tree = null;
+			*/
+			
+			//显示选择条件
+			init_select_form();
+
+        </script>
+        <script type="text/javascript">
+            function generatedoc_exe(){
+                /*
+                
+				*/
+				var dataJson = _convert_table_rows_to_json('fs_tree_list');
+				document.getElementById('form_data_fs_tree')['inp_data_fs_tree'].value = dataJson;
+                var base_path = '<?=$base_path?>';
+                //var _fs_tree_content = document.getElementById('fs_tree').innerHTML;
+                var _url = base_path + "index.php?c=document&a=exportUserDocument";
+                $.post(_url, {fs_tree_content:dataJson}, function(data){
+                    location.href = _url+'&download=1';
+                });
+            }
+			
+			function _convert_table_rows_to_json(tableID){
+				var dataJson = '';
+				var objTable = document.getElementById(tableID);
+				dataJson += '[';
+				for(var i=0; i<objTable.rows.length; i++){
+					dataJson += '[';
+					for(var j=0; j<objTable.rows[i].cells.length; j++){
+						dataJson += '"' + objTable.rows[i].cells[j].innerText + '"';
+						if(j < objTable.rows[i].cells.length-1){
+							dataJson += ',';
+						}						
+					}
+					dataJson += ']';
+					if(i < objTable.rows.length-1){
+						dataJson += ',';
+					}
+				}
+				dataJson += ']';
+				return dataJson;
+			}
+        </script>
+		<form id="form_data_fs_tree">
+		  <input type="hidden" name="inp_data_fs_tree" value="">
+		</form>
+    </body>
+</html>

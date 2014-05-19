@@ -1,0 +1,350 @@
+<? include("header.html"); ?>
+<!--页主体开始-->
+<script type="text/javascript">
+    <? if($login_user_info['u_grade'] > 0){   ?>
+        var login_user = <?=$login_user?>; 
+        Ext.Loader.setConfig({enabled: true}); //动态加载类
+        Ext.onReady(function () {
+            var mystore = new Ext.data.TreeStore({
+                nodeParam: 'u_id',
+                proxy:{
+                    type: 'ajax',
+                    url: '<?=$base_path?>' + "index.php?c=usergroup&a=listworkgroup",
+                    reader: 'json'
+                },
+                //fields:['id','name'],
+                autoLoad: true,
+            });
+            var projectTreePanel = Ext.create('Ext.tree.Panel', {
+                rootVisible: false,
+                singleExpand: true,
+                root:{
+                    name: '系统管理员',
+                    id:1,
+                    expanded: true
+                },
+                border:1,
+                useArrows:true,
+                store: mystore,
+                renderTo: Ext.getBody()
+
+            });
+
+            Ext.create('Ext.container.Viewport', {
+                layout: 'border',
+                items: [{
+                    region: 'south',
+                    collapsible: false,
+                    html: '<div style="text-align:center;">&copy;中国机械设备工程股份有限公司<div>',
+                    split: false,
+                    height: 22
+                }, {
+                    region: 'west',
+                    title: '工作组列表',
+                    //collapsible: true,
+                    id:'projectlist',
+                    split: true,
+                    width:200,
+                    autoScroll : true,
+                    items:projectTreePanel
+                }, {
+                    region: 'center',
+                    id: 'documentlist',
+                    html:'<h1></h1>',
+                    autoScroll: true
+                }]
+            });
+            projectTreePanel.setHeight(Ext.getCmp('projectlist').getHeight()-28);
+            projectTreePanel.on({
+                //目录树单击事件
+                'itemclick' : function(view, rcd, item, idx, event, eOpts) {
+                    event.stopEvent();
+                    /*
+                    if(rcd.isLeaf()){
+                    //阻止事件传播
+                    event.stopEvent();
+                    var href=rcd.data.href;
+                    if(!href)return;
+                    window.location.href='#';// + href;
+                    }*/
+                },
+                //目录数右键事件
+                'itemcontextmenu' : function(view, rcd, item, idx, event, eOpts) {
+                    event.preventDefault();
+                    event.stopEvent();
+                    var menu = new Ext.menu.Menu({
+                        float: true,
+                        items:[{
+                            text: '编辑',
+                            disabled:!Boolean(parseInt(rcd.raw.u_isgroup)),
+                            handler: function(){
+                                this.up("menu").hide();
+
+                                editprojectform = new Ext.form.Panel({
+                                    title: '<center>编辑【'+rcd.raw.u_name+'】</center>',
+                                    width: 380,
+                                    //height: 150,
+                                    id: 'editprojectform',
+                                    autoHeight : true,
+                                    frame: true,
+                                    bodyStyle: 'padding: 5 5 5 5',
+                                    defaultType: 'textfield',
+                                    buttonAlign: 'center',
+                                    defaults: {
+                                        autoFitErrors: false,
+                                        labelSeparator : '：',
+                                        labelWidth: 80,
+                                        width: 300,
+                                        allowBlank: false,
+                                        blankText: '不允许为空',
+                                        labelAlign: 'left',
+                                        msgTarget: 'under'  
+                                    },
+                                    items: [{
+                                        xtype:'hiddenfield',
+                                        name: 'login_user_id',
+                                        value: login_user.u_id
+                                    },{
+                                        xtype:'hiddenfield',
+                                        name: 'login_user_name',
+                                        value: login_user.u_name
+                                    },{
+                                        xtype:'hiddenfield',
+                                        name: 'login_user_group',
+                                        value: login_user.u_group
+                                    },{
+                                        xtype:'hiddenfield',
+                                        name: 'u_id',
+                                        value: rcd.raw.u_id
+                                    },{
+                                        xtype:'hiddenfield',
+                                        name: 'u_oldname',
+                                        id: 'u_oldname',
+                                        value: rcd.raw.u_name
+                                    },{
+                                        xtype:'textfield',
+                                        name: 'workgroupname',
+                                        id: 'workgroupname',
+                                        fieldLabel: '工作组名称',
+                                        value:rcd.raw.u_name
+                                    }],
+                                    buttons:[{
+                                        text: '确定',
+                                        handler: function(){
+                                            if(editprojectform.form.isValid()){
+                                                var formparams = editprojectform.getForm().getValues();
+                                                editprojectform.getForm().submit({
+                                                    url: '<?=$base_path?>index.php?c=usergroup&a=editgroup',
+                                                    method: 'post',
+                                                    timeout: 30,
+                                                    params: formparams,
+                                                    success: function(form, action){
+                                                        Ext.Msg.alert('温馨提示', action.result.msg);
+                                                        while (delNode = projectTreePanel.getRootNode().childNodes[0]) {
+                                                            projectTreePanel.getRootNode().removeChild(delNode);
+                                                        }
+                                                        projectTreePanel.store.load();
+                                                        Ext.getCmp('u_oldname').setValue(editprojectform.getForm().findField('workgroupname').lastValue);
+                                                    },
+                                                    failure: function(form, action){
+                                                        Ext.Msg.alert('温馨提示', action.result.msg);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }]
+                                });
+                                Ext.getCmp('documentlist').remove(Ext.getCmp('documentlist').items.get(0));
+                                Ext.getCmp('documentlist').add(editprojectform);;
+
+                            }
+                        },{
+                            text: '新建工作组',
+                            handler: function(){
+                                this.up("menu").hide();
+
+                                addworkgroupform = new Ext.form.Panel({
+                                    title: '<center>新建工作组</center>',
+                                    width: 380,
+                                    //height: 150,
+                                    id: 'addworkgroupform',
+                                    autoHeight : true,
+                                    frame: true,
+                                    bodyStyle: 'padding: 5 5 5 5',
+                                    defaultType: 'textfield',
+                                    buttonAlign: 'center',
+                                    defaults: {
+                                        autoFitErrors: false,
+                                        labelSeparator : '：',
+                                        labelWidth: 80,
+                                        width: 300,
+                                        allowBlank: false,
+                                        blankText: '不允许为空',
+                                        labelAlign: 'left',
+                                        msgTarget: 'under'  
+                                    },
+                                    items: [{
+                                        xtype:'hiddenfield',
+                                        name: 'login_user_id',
+                                        value: login_user.u_id
+                                    },{
+                                        xtype:'hiddenfield',
+                                        name: 'login_user_name',
+                                        value: login_user.u_name
+                                    },{
+                                        xtype:'hiddenfield',
+                                        name: 'login_user_group',
+                                        value: login_user.u_parent
+                                    },{
+                                        xtype:'textfield',
+                                        name: 'workgroupname',
+                                        id: 'workgroupname',
+                                        fieldLabel: '工作组名称'
+                                    }],
+                                    buttons:[{
+                                        text: '添加',
+                                        handler: function(){
+                                            if(addworkgroupform.form.isValid()){
+                                                addworkgroupform.getForm().submit({
+                                                    url: '<?=$base_path?>index.php?c=usergroup&a=addworkgroup',
+                                                    method: 'post',
+                                                    timeout: 30,
+                                                    params: addworkgroupform.getForm().getValues,
+                                                    success: function(form, action){
+                                                        Ext.getCmp('workgroupname').setValue(' ');
+                                                        Ext.Msg.alert('温馨提示', action.result.msg);
+                                                    },
+                                                    failure: function(form, action){
+                                                        Ext.Msg.alert('温馨提示', action.result.msg);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }]
+                                });
+                                Ext.getCmp('documentlist').remove(Ext.getCmp('documentlist').items.get(0));
+                                Ext.getCmp('documentlist').add(addworkgroupform);;
+                            }
+                        },{
+                            text:'添加组员',
+                            //iconCls:'leaf',
+                            disabled:!Boolean(parseInt(rcd.raw.u_isgroup)),
+                            handler: function(){
+                                this.up('menu').hide();
+
+                                addgroupuser = new Ext.form.Panel({
+                                    title: '<center>添加组员</center>',
+                                    width: 380,
+                                    //height: 150,
+                                    id: 'projectform',
+                                    autoHeight : true,
+                                    frame: true,
+                                    bodyStyle: 'padding: 5 5 5 5',
+                                    defaultType: 'textfield',
+                                    buttonAlign: 'center',
+                                    defaults: {
+                                        autoFitErrors: false,
+                                        labelSeparator : '：',
+                                        labelWidth: 80,
+                                        width: 300,
+                                        allowBlank: false,
+                                        blankText: '不允许为空',
+                                        labelAlign: 'left',
+                                        msgTarget: 'under'  
+                                    },
+                                    items: [{
+                                        xtype:'hiddenfield',
+                                        name: 'login_user_id',
+                                        value: login_user.u_id
+                                    },{
+                                        xtype:'hiddenfield',
+                                        name: 'login_user_name',
+                                        value: login_user.u_name
+                                    },{
+                                        xtype:'hiddenfield',
+                                        name: 'login_user_group',
+                                        value: login_user.u_parent
+                                    },{
+                                        xtype:'hiddenfield',
+                                        name: 'workgroup_id',
+                                        value: rcd.raw.u_id
+                                    },{
+                                        xtype:'textfield',
+                                        name: 'workgroupname',
+                                        fieldLabel: '工作组',
+                                        readOnly: true,
+                                        value: rcd.raw.u_name
+                                    },{
+                                        xtype:'textfield',
+                                        name: 'username',
+                                        id: 'username',
+                                        fieldLabel: '姓名'
+                                    }, {
+                                        xtype:'textfield',
+                                        vtype: 'email',
+                                        id: 'email',
+                                        name: 'email',
+                                        fieldLabel: '邮箱'
+                                    }, {
+                                        xtype:'radiogroup',
+                                        id: 'grade',
+                                        fieldLabel: '权限',
+                                        columns: 2,
+                                        vertical: true,
+                                        items: [
+                                        { boxLabel: '普通组员', name: 'grade', inputValue: '0', checked: true},
+                                        { boxLabel: '组管理员', name: 'grade', inputValue: '1'},
+                                        { boxLabel: '组领导', name: 'grade', inputValue: '2' },
+                                        { boxLabel: '系统管理员', name: 'grade', inputValue: '100' },
+                                        { boxLabel: '公司领导', name: 'grade', inputValue: '99' },
+                                        ]
+                                    }],
+                                    buttons:[{
+                                        text: '添加',
+                                        handler: function(){
+                                            if(addgroupuser.form.isValid()){
+                                                addgroupuser.getForm().submit({
+                                                    url: '<?=$base_path?>index.php?c=usergroup&a=addgroupuser',
+                                                    method: 'post',
+                                                    timeout: 30,
+                                                    params: addgroupuser.getForm().getValues,
+                                                    success: function(form, action){
+                                                        Ext.getCmp('username').setValue(' ');
+                                                        Ext.getCmp('email').setValue(' ');
+                                                        Ext.Msg.alert('温馨提示', action.result.msg);
+                                                    },
+                                                    failure: function(form, action){
+                                                        Ext.Msg.alert('温馨提示', action.result.msg);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }]
+                                });
+                                Ext.getCmp('documentlist').remove(Ext.getCmp('documentlist').items.get(0));
+                                Ext.getCmp('documentlist').add(addgroupuser);;
+
+
+                            }
+                        }]
+                    }).showAt(event.getXY());
+                },
+                scope : this
+            });
+
+        });
+        <? }else{ ?>
+        Ext.onReady(function(){
+            Ext.Msg.show({  
+                title:'提示',
+                closable: false, 
+                msg:'你没有此权限， 请联系系统管理员', 
+                icon:Ext.MessageBox.WARNING,  
+            }); 
+        })
+        <? } ?>
+
+</script>
+
+<!--页主体结束-->
+<? include("footer.html"); ?>

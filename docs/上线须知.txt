@@ -1,0 +1,90 @@
+
+1、创建共享信息栏目录
+CREATE TABLE `fs_share_tree` (
+  `fs_id` int(11) NOT NULL AUTO_INCREMENT COMMENT '自增id',
+  `fs_parent` int(11) NOT NULL DEFAULT '0' COMMENT '所在目录',
+  `fs_isdir` tinyint(4) NOT NULL DEFAULT '0' COMMENT '0:文件  1:目录',
+  `fs_group` int(11) NOT NULL DEFAULT '0' COMMENT '所在组',
+  `fs_user` int(11) NOT NULL DEFAULT '0' COMMENT '所属用户',
+  `fs_create` datetime DEFAULT NULL COMMENT '创建时期和时间',
+  `fs_lastmodify` datetime DEFAULT NULL COMMENT '最后修改日期时间',
+  `fs_name` varchar(1024) DEFAULT NULL COMMENT '文件名称',
+  `fs_intro` varchar(1024) DEFAULT NULL COMMENT '文件说明',
+  `fs_size` int(11) DEFAULT NULL COMMENT '文件大小',
+  `fs_type` varchar(50) DEFAULT NULL COMMENT '文件类型 扩展名',
+  `fs_encrypt` tinyint(4) NOT NULL DEFAULT '0' COMMENT '0:普通  1:加密',
+  `fs_haspaper` tinyint(4) NOT NULL DEFAULT '0' COMMENT '0:电子版(过程文件)  1:纸版',
+  `fs_hashname` varchar(255) DEFAULT NULL COMMENT 'hash名称',
+  PRIMARY KEY (`fs_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8  
+
+
+###########################2013/08/20 修改列表###############################
+#====================日志表中需要修改的字段
+ALTER TABLE `fs_log` ADD fs_code VARCHAR(500) DEFAULT NULL COMMENT '文档编号';
+ALTER TABLE `fs_log` ADD fs_parent int(11) DEFAULT NULL COMMENT '文档所属父级ID';
+
+#====================tree表需要修改的字段
+ALTER TABLE `fs_tree` ADD fs_code VARCHAR(500) DEFAULT NULL COMMENT '文档编号';
+ALTER TABLE fs_tree ADD COLUMN fs_id_path VARCHAR(250) default '' COMMENT '文件ID的PATH 用于目录树的展开操作';
+#fstree 添加索引
+alter table fs_tree add index(`fs_parent`);
+
+#为多项目准备字段
+ALTER TABLE `fs_tree` ADD fs_isproject tinyint(1) DEFAULT 0 COMMENT '是否是项目';
+#更新项目标识符
+update fs_tree set fs_isproject=1 where fs_id='1';
+
+###########################2013/09/12 修改列表###############################
+ALTER TABLE `fs_share_tree` ADD fs_code VARCHAR(500) DEFAULT NULL COMMENT '文档编号';
+ALTER TABLE fs_share_tree ADD COLUMN fs_id_path VARCHAR(250) default '' COMMENT '文件ID的PATH 用于目录树的展开操作';
+#fs_share_tree 添加索引
+alter table fs_share_tree add index(`fs_parent`);
+
+
+
+
+###########################2013/09/12 修改列表#修改共享文件夹，添加表##############################
+CREATE TABLE `fs_user_sharedoc` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `u_id` int(11) NOT NULL,
+  `fs_id` int(11) NOT NULL,
+  `fs_parent` int(11) DEFAULT NULL,
+  `fs_code` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `u_id` (`u_id`),
+  KEY `fs_parent` (`fs_parent`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8
+
+alter table fs_tree add column fs_is_share tinyint(1) default 0 comment '是否共享';
+
+
+
+#####################2013/10/10 针对组管理身份添加管理的目标组 ##############################
+alter table fs_user add column u_targetgroup char(10) comment '组管理员管理的目标组';
+
+
+
+DELETE from fs_user_sharedoc where u_id='9';
+
+##########################################################
+alter table fs_tree add column fs_fullpath varchar(500) default '' comment '文件完整路径';
+alter table fs_tree add column fs_level int(5) comment '文件级别';
+update fs_tree set fs_level='0' where fs_parent='0';
+alter table fs_tree add index(`fs_encrypt`);
+alter table fs_tree add index(`fs_level`);
+alter table fs_tree add index(`fs_user`);
+alter table fs_tree add index(`fs_group`);
+alter table fs_tree add index i_user_group_dir(`fs_user`, `fs_group`, `fs_isdir`);
+alter table fs_tree add index i_group_dir(`fs_group`, `fs_isdir`);
+alter table fs_tree add index i_parent_user_group (`fs_parent`, `fs_user`, `fs_group`);
+##########################################################
+alter table fs_user add index `i_u_parent`(`u_parent`);
+alter table fs_user add index `i_u_email`(`u_email`);
+alter table fs_user add index `i_u_isgroup`(`u_isgroup`);
+alter table fs_user add index `i_u_grade`(`u_grade`);
+alter table fs_user add index `i_u_targetgroup`(`u_targetgroup`);
+
+
+
+find ./ -name "*.JPG" | awk -F "." '{print $2}' | xargs -i -t mv ./{}.JPG ./{}.jpg
