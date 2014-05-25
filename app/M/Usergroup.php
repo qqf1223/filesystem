@@ -534,7 +534,7 @@
                 return false;
             } elseif($grade == 0){
                 if(in_array($op, $user)){
-                    if($op=='editdocument' || $op=='uploadfile' || $op=='adddocument' || $op=='movedocument' || $op=='sharesetting' || $op=='deldocument'){
+                    if($op=='editdocument' || $op=='uploadfile' || $op=='adddocument' || $op=='movedocument' || $op=='sharesetting' || $op=='deldocument' || $op=='copydocumentstruct'){
                         if(!empty($opobj_id)){
                             $sql = "select * from ".self::$document_table . " where fs_id='{$opobj_id}' and fs_user='{$login_user_info['u_id']}'";
                             return (boolean)self::$db->get_row($sql);
