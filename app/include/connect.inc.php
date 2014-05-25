@@ -14,7 +14,8 @@ class DB_Local_Read extends DB_Sql {
 */
 class DB_Local_Read extends DB_Sql {
     var $Host = "localhost";
-    var $Database = "filesystem";
+    #var $Database = "filesystem";
+    var $Database = "filesystem_swith";
     var $User = "root";
     var $Password = "";
     var $LinkName = "conn_fs_read";

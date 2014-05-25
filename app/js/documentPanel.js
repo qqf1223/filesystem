@@ -1025,7 +1025,7 @@ function showdocumentgrid(rcd, contentid){
     });
     _store.loadPage(1, { start: 0, limit: itemsPerPage });
     //var gridHeight = $("#"+_contentid).innerHeight();
-    var gridHeight = Ext.getCmp(_contentid).getHeight();
+    var gridHeight = parseInt(Ext.getCmp(_contentid).getHeight());
     var icon = function(val){
         if(val){
             return '<img src="'+val+'">'; 
@@ -1086,7 +1086,7 @@ function showdocumentgrid(rcd, contentid){
     }
 
     var docgrid = Ext.create('Ext.grid.Panel', {
-        height: gridHeight,
+        //height: gridHeight,
         frame: true,
         store: _store,
         multiSelect: false,
@@ -1101,6 +1101,9 @@ function showdocumentgrid(rcd, contentid){
         { header: '所属用户', width: 120, dataIndex: 'u_name', sortable: false, menuDisabled : true },
         { header: '是否加密', width: 70, dataIndex: 'fs_encrypt', renderer: isencrypt, sortable: false, menuDisabled : true  }
         ],
+        viewConfig:{
+            height: parseInt(gridHeight)-95  
+        },
         dockedItems: [{
             xtype: 'pagingtoolbar',
             store: _store,   // same store GridPanel is using
