@@ -2025,7 +2025,7 @@
                 $where .= " fs_isdir='{$fs_mode}' and";
             }
             if($fs_name){
-                $where .= " fs_name like '%{$fs_name}%' and";
+                $where .= " fs_code like '%{$fs_name}%' and";
                 $condition_str .= ' 编号为'.$fs_name;
             }
             if($fs_intro){
